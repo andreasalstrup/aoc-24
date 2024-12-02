@@ -17,22 +17,36 @@ fn parse_input(buffer: &str) -> Vec<Vec<u32>> {
 }
 
 fn is_safe(level: &Vec<u32>) -> bool {
-    let offset: Vec<u32> = level
-        .iter()
-        .cycle()
-        .skip(1)
-        .take(level.len())
-        .cloned()
-        .collect();
+    fn check(level: &Vec<u32>) -> bool {
+        let offset: Vec<u32> = level
+            .iter()
+            .cycle()
+            .skip(1)
+            .take(level.len())
+            .cloned()
+            .collect();
 
-    let mut pairs: Vec<(&u32, &u32)> = level.iter().zip(offset.iter()).collect();
-    pairs.truncate(pairs.len() - 1);
+        let mut pairs: Vec<(&u32, &u32)> = level.iter().zip(offset.iter()).collect();
+        pairs.truncate(pairs.len() - 1);
 
-    let check = pairs.iter().all(|&(a, b)| a != b && (a.abs_diff(*b) <= 3));
-    let increasing = pairs.iter().all(|&(a, b)| a < b);
-    let decreasing = pairs.iter().all(|&(a, b)| a > b);
+        let check = pairs.iter().all(|&(a, b)| a != b && (a.abs_diff(*b) <= 3));
+        let increasing = pairs.iter().all(|&(a, b)| a < b);
+        let decreasing = pairs.iter().all(|&(a, b)| a > b);
+        check && (increasing || decreasing)
+    }
 
-    check && (increasing || decreasing)
+    if check(level) {
+        true
+    } else {
+        for i in 0..level.len() {
+            let mut dampener_vec = level.clone();
+            dampener_vec.remove(i);
+            if check(&dampener_vec) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 fn safe_reports(levels: &Vec<Vec<u32>>) -> u32 {
@@ -47,7 +61,6 @@ fn main() -> Result<()> {
     file.read_to_string(&mut buffer)?;
 
     let levels = parse_input(&buffer);
-
     println!("Safe reports: {}", safe_reports(&levels));
 
     Ok(())
