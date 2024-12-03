@@ -1,12 +1,12 @@
+use regex::Regex;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::Result;
-use regex::Regex;
 
 fn parse_input(buffer: &str) -> Vec<(&str, Vec<u32>)> {
-    let mut result: Vec<(&str, Vec<u32>)> = Vec::new();
+    let mut mul_pair: Vec<(&str, Vec<u32>)> = Vec::new();
 
-    let re_mul = Regex::new(r"mul\(\d{1,3},\d{1,3}\)").unwrap();
+    let re_mul = Regex::new(r"mul\(\d{1,3},\d{1,3}\)|do\(\)|don\'t\(\)").unwrap();
     let matches_mul: Vec<&str> = re_mul
         .find_iter(buffer.as_ref())
         .map(|m| m.as_str())
@@ -18,7 +18,21 @@ fn parse_input(buffer: &str) -> Vec<(&str, Vec<u32>)> {
             .find_iter(mul)
             .map(|n| n.as_str().parse::<u32>().unwrap())
             .collect();
-        result.push((mul, matches_num));
+        mul_pair.push((mul, matches_num));
+    }
+
+    let mut result: Vec<(&str, Vec<u32>)> = Vec::new();
+    let mut skip = false;
+    for (k, v) in mul_pair.iter() {
+        skip = match *k {
+            "don't()" => true,
+            "do()" => false,
+            _ => skip,
+        };
+
+        if !skip {
+            result.push((k, v.to_vec()))
+        }
     }
 
     result
@@ -26,9 +40,11 @@ fn parse_input(buffer: &str) -> Vec<(&str, Vec<u32>)> {
 
 fn mul_corrupted_memory(mul_map: Vec<(&str, Vec<u32>)>) -> u32 {
     let mut result = 0;
-    for mul in mul_map {
-        let p: u32 = mul.1.into_iter().product();
-        result += p;
+    for (_, v) in mul_map {
+        if !v.is_empty() {
+            let p: u32 = v.into_iter().product();
+            result += p;
+        }
     }
     result
 }
@@ -38,20 +54,8 @@ fn main() -> Result<()> {
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
 
-    let corrupted_mem =
-        "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))".to_string();
-
-    // let input = parse_input(&corrupted_mem);
-
     let input = parse_input(&buffer);
-
-    // println!("{:?}", input);
-
-    println!(
-        "Result of multiplications: {}",
-        mul_corrupted_memory(input)
-    );
-    // 175015740
+    println!("Result of multiplications: {}", mul_corrupted_memory(input));
 
     Ok(())
 }
