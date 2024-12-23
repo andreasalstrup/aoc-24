@@ -65,11 +65,11 @@ impl SafetyManual {
 
     fn safe_check(&mut self) {
         for update in self.updates.iter_mut() {
-            for (i, num) in update.data.iter().enumerate() {
+            for (i, &num) in update.data.iter().enumerate() {
                 let should_come_before: HashSet<u32> = self
                     .rules
                     .iter()
-                    .filter(|&r| r.x == *num)
+                    .filter(|&r| r.x == num)
                     .map(|r| r.y)
                     .collect();
 
@@ -78,9 +78,9 @@ impl SafetyManual {
                     y_set.insert(*n);
                 });
 
-                let x: HashSet<_> = should_come_before.intersection(&y_set).collect();
-                update.right_order = Some(x.is_empty());
-                if !x.is_empty() {
+                let unsafe_set: HashSet<_> = should_come_before.intersection(&y_set).collect();
+                update.right_order = Some(unsafe_set.is_empty());
+                if !unsafe_set.is_empty() {
                     break;
                 }
             }
@@ -91,7 +91,49 @@ impl SafetyManual {
         self.safe_check();
         self.updates
             .iter()
-            .filter(|u| u.right_order.is_some_and(|x| x))
+            .filter(|update| update.right_order.is_some_and(|safe| safe))
+            .fold(0, |acc, update| acc + update.data[update.data.len() / 2])
+    }
+
+    fn part_two(&mut self) -> u32 {
+        self.safe_check();
+        let mut edit_to_safe: Vec<&mut Update> = self
+            .updates
+            .iter_mut()
+            .filter(|update| update.right_order.is_none_or(|safe| !safe))
+            .collect();
+
+        for update in edit_to_safe.iter_mut() {
+            for (i, &num) in update.data.clone().iter().enumerate() {
+                let should_come_before: HashSet<u32> = self
+                    .rules
+                    .iter()
+                    .filter(|&r| r.x == num)
+                    .map(|r| r.y)
+                    .collect();
+
+                let mut y_set = HashSet::new();
+                update.data[0..i].iter().for_each(|n| {
+                    y_set.insert(*n);
+                });
+
+                let mut unsafe_set: HashSet<u32> =
+                    should_come_before.intersection(&y_set).cloned().collect();
+                update.right_order = Some(unsafe_set.is_empty());
+
+                if !unsafe_set.is_empty() {
+                    while let Some(unsafe_pos) =
+                        update.data.iter().position(|x| unsafe_set.contains(x))
+                    {
+                        unsafe_set.remove(&update.data[i]);
+                        update.data.swap(i, unsafe_pos);
+                    }
+                }
+            }
+        }
+
+        edit_to_safe
+            .iter()
             .fold(0, |acc, u| acc + u.data[u.data.len() / 2])
     }
 }
@@ -103,6 +145,7 @@ fn main() -> Result<()> {
 
     let mut safety_manual = SafetyManual::new(&buffer);
     println!("Part one: {}", safety_manual.part_one());
+    println!("Part two: {}", safety_manual.part_two());
 
     Ok(())
 }
@@ -111,9 +154,8 @@ fn main() -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn part_one() {
-        let test = "47|53
+    fn test() -> &'static str {
+        "47|53
 97|13
 97|61
 97|47
@@ -140,9 +182,12 @@ mod tests {
 75,29,13
 75,97,47,61,53
 61,13,29
-97,13,75,29,47";
+97,13,75,29,47"
+    }
 
-        let mut safety_manual = SafetyManual::new(test);
+    #[test]
+    fn part_one() {
+        let mut safety_manual = SafetyManual::new(test());
 
         safety_manual.safe_check();
 
@@ -154,5 +199,14 @@ mod tests {
         assert_eq!(safety_manual.updates[5].right_order, Some(false));
 
         assert_eq!(safety_manual.part_one(), 143);
+    }
+
+    #[test]
+    fn part_two() {
+        let mut safety_manual = SafetyManual::new(test());
+
+        safety_manual.safe_check();
+
+        assert_eq!(safety_manual.part_two(), 123);
     }
 }
